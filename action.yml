@@ -1,0 +1,80 @@
+name: 'Defuscator'
+description: 'Statically deobfuscate JavaScript and gate a build on it. Emits SARIF for GitHub code scanning. Never executes the analysed code.'
+author: 'Defuscator.com'
+
+branding:
+  icon: 'eye-off'
+  color: 'purple'
+
+inputs:
+  paths:
+    description: 'Files or directories to scan, one per line or comma separated. Directories are walked recursively.'
+    required: false
+    default: '.'
+  extensions:
+    description: 'Comma separated file extensions to include when walking directories.'
+    required: false
+    default: '.js,.mjs,.cjs'
+  exclude:
+    description: 'Comma separated path segments to skip while walking.'
+    required: false
+    default: 'node_modules,dist,build,out,coverage,vendor,.git'
+  gate:
+    description: 'Which score decides the outcome: obfuscation (default) or risk. Obfuscation is what a build gate usually wants - ordinary minified libraries score 0 there, but score high for capability because they call setTimeout and touch the DOM.'
+    required: false
+    default: 'obfuscation'
+  fail-on:
+    description: 'Fail the step at this severity or above: high (>=68), medium (>=34), or never.'
+    required: false
+    default: 'high'
+  sarif-file:
+    description: 'Where to write the merged SARIF report.'
+    required: false
+    default: 'defuscator.sarif'
+  max-files:
+    description: 'Stop after this many files, as a guard against scanning an unexpectedly huge tree.'
+    required: false
+    default: '5000'
+  version:
+    description: 'Version of the defuscator npm package to use. Pinned by default so a CI run is reproducible and a bad npm publish cannot reach every consumer at once; override to track a newer CLI without waiting for an action release.'
+    required: false
+    default: '1.0.0'
+
+outputs:
+  sarif-file:
+    description: 'Path to the merged SARIF report.'
+    value: ${{ steps.scan.outputs.sarif-file }}
+  files-scanned:
+    description: 'Number of files analysed.'
+    value: ${{ steps.scan.outputs.files-scanned }}
+  max-obfuscation:
+    description: 'Highest obfuscation score across all scanned files.'
+    value: ${{ steps.scan.outputs.max-obfuscation }}
+  max-risk:
+    description: 'Highest capability risk score across all scanned files.'
+    value: ${{ steps.scan.outputs.max-risk }}
+  worst-file:
+    description: 'The file that produced the highest score under the selected gate.'
+    value: ${{ steps.scan.outputs.worst-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    # Installed into the action's own directory rather than globally, so it cannot collide with
+    # whatever the repository being scanned has in its own node_modules.
+    - name: Install Defuscator CLI
+      shell: bash
+      run: npm install --prefix "$GITHUB_ACTION_PATH" --no-audit --no-fund --loglevel=error "defuscator@${{ inputs.version }}"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        INPUT_PATHS: ${{ inputs.paths }}
+        INPUT_EXTENSIONS: ${{ inputs.extensions }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_GATE: ${{ inputs.gate }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_SARIF_FILE: ${{ inputs.sarif-file }}
+        INPUT_MAX_FILES: ${{ inputs.max-files }}
+      run: node "$GITHUB_ACTION_PATH/scan.js"

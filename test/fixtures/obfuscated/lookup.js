@@ -1,0 +1,1 @@
+var _0x4f2a=["log","hello"];var _0x9c3d=function(i){return _0x4f2a[i];};console[_0x9c3d(0)](_0x9c3d(1));

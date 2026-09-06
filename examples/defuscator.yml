@@ -1,0 +1,40 @@
+# Copy to .github/workflows/defuscator.yml
+name: Defuscator
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: defuscator/defuscator-action@v1
+        id: defuscator
+        with:
+          paths: |
+            src
+            public
+          fail-on: high
+
+      # always(), so a failing gate still leaves findings to look at.
+      - name: Upload to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.defuscator.outputs.sarif-file }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "scanned:        ${{ steps.defuscator.outputs.files-scanned }}"
+          echo "max obfuscation:${{ steps.defuscator.outputs.max-obfuscation }}"
+          echo "max risk:       ${{ steps.defuscator.outputs.max-risk }}"
+          echo "worst file:     ${{ steps.defuscator.outputs.worst-file }}"

@@ -1,0 +1,81 @@
+# Self-test: runs this action against the fixtures in test/fixtures on every supported runner.
+#
+# It asserts both directions, which is the part that matters. An action that never fails a build is
+# indistinguishable from one that is silently broken, so the obfuscated fixture is expected to fail
+# the gate and the job checks that it did.
+#
+# Requires the `defuscator` npm package to be published first - the action installs the CLI from npm,
+# so these runs cannot pass before that exists.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Clean code must pass and must score zero for obfuscation.
+      - name: Clean fixture passes
+        id: clean
+        uses: ./
+        with:
+          paths: test/fixtures/clean
+          fail-on: high
+          sarif-file: clean.sarif
+
+      - name: Check clean results
+        shell: bash
+        run: |
+          echo "scanned=${{ steps.clean.outputs.files-scanned }} obfuscation=${{ steps.clean.outputs.max-obfuscation }}"
+          test "${{ steps.clean.outputs.files-scanned }}" = "1"
+          test "${{ steps.clean.outputs.max-obfuscation }}" = "0"
+
+      # Obfuscated code must fail the gate. continue-on-error lets the job inspect the outcome
+      # instead of dying with it.
+      - name: Obfuscated fixture fails the gate
+        id: obfuscated
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: test/fixtures/obfuscated
+          fail-on: medium
+          sarif-file: obfuscated.sarif
+
+      - name: Check the gate actually failed
+        shell: bash
+        run: |
+          echo "outcome=${{ steps.obfuscated.outcome }} obfuscation=${{ steps.obfuscated.outputs.max-obfuscation }}"
+          test "${{ steps.obfuscated.outcome }}" = "failure"
+
+      # The SARIF has to be valid JSON with repository-relative paths, or code scanning accepts the
+      # upload and then annotates nothing.
+      - name: SARIF is well formed and relative
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('obfuscated.sarif', 'utf8'));
+            const run = report.runs[0];
+            if (report.version !== '2.1.0') throw new Error('unexpected SARIF version');
+            if (!run.results.length) throw new Error('expected findings in the obfuscated fixture');
+            for (const result of run.results) {
+              const uri = result.locations[0].physicalLocation.artifactLocation.uri;
+              if (/^([a-zA-Z]:|\/)/.test(uri)) throw new Error('absolute path in SARIF: ' + uri);
+              if (!fs.existsSync(uri)) throw new Error('SARIF path does not resolve from the repo root: ' + uri);
+            }
+            console.log(run.results.length + ' finding(s), all paths repository-relative');
+          "
