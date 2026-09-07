@@ -39,11 +39,11 @@ const maxFiles = parseInt(process.env.INPUT_MAX_FILES || '5000', 10) || 5000;
 // ---------------------------------------------------------------- locate the binary
 
 const PACKAGES = {
-  'darwin arm64': '@defuscator/cli-darwin-arm64',
-  'darwin x64': '@defuscator/cli-darwin-x64',
-  'linux arm64': '@defuscator/cli-linux-arm64',
-  'linux x64': '@defuscator/cli-linux-x64',
-  'win32 x64': '@defuscator/cli-win32-x64'
+  'darwin arm64': '@richscriptsinc/defuscator-cli-darwin-arm64',
+  'darwin x64': '@richscriptsinc/defuscator-cli-darwin-x64',
+  'linux arm64': '@richscriptsinc/defuscator-cli-linux-arm64',
+  'linux x64': '@richscriptsinc/defuscator-cli-linux-x64',
+  'win32 x64': '@richscriptsinc/defuscator-cli-win32-x64'
 };
 
 function resolveBinary() {
