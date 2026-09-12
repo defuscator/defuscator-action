@@ -38,7 +38,7 @@ inputs:
   version:
     description: 'Version of the defuscator npm package to use. Pinned by default so a CI run is reproducible and a bad npm publish cannot reach every consumer at once; override to track a newer CLI without waiting for an action release.'
     required: false
-    default: '1.0.0'
+    default: '1.0.1'
 
 outputs:
   sarif-file:

@@ -203,7 +203,7 @@ const merged = {
         driver: {
           name: 'Defuscator',
           informationUri: 'https://defuscator.com',
-          version: '1.0.0',
+          version: '1.0.1',
           rules: Array.from(rules.values())
         }
       },
